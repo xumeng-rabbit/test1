@@ -1,0 +1,138 @@
+安装hive:
+1.拷贝apache-hive-2.3.2-bin.tar.gz 通过fileZilla 上传到master中 /opt/Software/目录下
+2.解压  tar –zxvf apache-hive-2.3.2-bin.tar.gz
+3.配置环境变量  vi /etc/profile
+	export HIVE_HOME=/opt/SoftWare/apache-hive-2.3.2-bin
+	export PATH=$PATH:$HIVE_HOME/bin
+4.刷新环境变量  
+	source /etc/profile
+
+
+安装mysql作为hive的metastore:
+
+1.首先查看当前安装的mariadb包(eg:mariadb-libs-5.5.44-2.el7.centos.x86_64)
+	rpm -qa|grep mariadb
+2.强制卸载mariadb
+	rpm -e --nodeps mariadb-libs-5.5.44-2.el7.centos.x86_64
+3.检查是否安装过mysql(eg:perl-DBD-MySQL-4.023-6.el7.x86_64)
+	rpm -qa | grep -i mysql       yum list install mysql*
+4.删除自带的mysql
+	rpm -e --nodeps perl-DBD-MySQL-4.023-6.el7.x86_64
+5.删除残留的mysql目录或文件：(删除到通过以下命令查不到为止)
+	whereis mysql   find / -name mysql
+    rpm -e --nodeps + 目录或文件名     
+6.用 yum 安装 wget
+	yum install wget
+7.下载并安装MySQL官方的 Yum Repository
+	wget -i -c http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm
+8.安装mysql57-community-release-el7-10.noarch.rpm包
+	yum -y install mysql57-community-release-el7-10.noarch.rpm
+9.安装MySQL
+	yum -y install mysql-community-server
+10.启动mysql
+	systemctl start  mysqld.service
+11.查看mysql运行状态
+	systemctl status mysqld.service
+12.找出在日志文件中的密码:(第一次启动MySQL时，会把密码记录到 /var/log/mysqld.log 文件中)
+	grep "password" /var/log/mysqld.log   然后把临时密码复制下来，进入数据库进行修改密码
+12.登录数据库(输入指令后回车 将密码粘贴进去再回车)   
+	mysql -u root -p
+13.修改密码(第一次登录后不能做任何事情，因为MySQL默认必须修改密码之后才能操作数据库)
+	ALTER USER 'root'@'localhost' IDENTIFIED BY 'lyd12344548';(新密码要数字字母,否则会报错)
+	如果一直说设置的新密码密码不合法，可以执行下面指令后再修改密码。
+		set global validate_password_policy=0;  Query OK, 0 rows affected (0.00 sec)
+		set global validate_password_length=1;  Query OK, 0 rows affected (0.00 sec)
+14.开放3306端口
+	查看 firewalld 状态  systemctl status firewalld
+	开启 firewalld    	 systemctl start firewalld
+	开放3306端口 		 firewall-cmd --permanent  --zone=public --add-port=3306/tcp
+	重新载入			 firewall-cmd --reload
+	查看     			 firewall-cmd --zone=public --query-port=3306/tcp
+	删除                 firewall-cmd --permanent  --zone=public --remove-port=3306/tcp 
+
+15.mysql开机自启
+	vim /etc/rc.local    添加  service mysqld start
+
+
+
+配置hive：
+1.在hdfs中新建以下目录:(如果处在安全模式执行此代码:hdfs dfsadmin -safemode leave)
+	hdfs dfs -mkdir /tmp  
+	hdfs dfs -mkdir /user
+	hdfs dfs -mkdir /user/hive
+	hdfs dfs -mkdir /user/hive/warehouse
+2.修改对应目录权限:
+	hadoop fs -chmod g+w /tmp
+	hadoop fs -chmod g+w /user/hive/warehouse
+3.copy mysql驱动包到hive的lib目录下
+4.进入到hive的conf目录，重命名：
+	cp hive-default.xml.template hive-site.xml
+5.修改hive-site.xml文件(使用fileZilla进行修改)
+6.使用schematool 初始化metastore的schema:
+	schematool -initSchema -dbType mysql
+	schematool -dbType mysql -initSchema
+
+
+
+
+
+
+
+
+
+
+
+
+update user set password=password("lyd12344548") where user="root";
+
+ogk/>bnr>1=K
+ALTER USER 'root'@'localhost' IDENTIFIED BY '12344548'
+
+安装mysql作为hive的metastore
+1.查看该操作系统上是否已经安装了 mysql 数据库  
+    rpm -qa | grep mysql
+2.如果已经安装了mysql数据库 通过以下命令卸载
+	yum -y remove mysql-libs*
+	rm -rf /var/lib/mysql*
+3.安装mysql
+	yum install mysql-server mysql mysql-devel
+4.启动mysql  
+	service mysqld start    service mariadb start
+5.启动后查看mysql是否开机自启
+	chkconfig --list | grep mysqld  出现mysqld 0:off 1:off 2:off 3:off 4:off 5:off 6:off 代表没有开机自启
+6.设置开机启动
+	chkconfig mysqld on
+7.开启3306端口(方便远程管理)
+
+
+
+
+首先centos7 已经不支持mysql，因为收费了你懂得，所以内部集成了mariadb，
+
+而安装mysql的话会和mariadb的文件冲突，所以需要先卸载掉mariadb。由于确定使用mysql，那只有卸载mariadb了。
+一、首先查看当前安装的mariadb包
+
+rpm -qa|grep mariadb
+本人得到结果是：mariadb-libs-5.5.44-2.el7.centos.x86_64
+
+二、卸载mariadb
+
+rpm -e mariadb-libs-5.5.44-2.el7.centos.x86_64得到错误提示如下：
+
+1 error: Failed dependencies:
+2     libmysqlclient.so.18()(64bit) is needed by (installed) postfix-2:2.10.1-6.el7.x86_64
+3     libmysqlclient.so.18(libmysqlclient_18)(64bit) is needed by (installed) postfix-2:2.10.1-6.el7.x86_64
+提示有第三方的库依赖。
+
+三、强制卸载mariadb
+
+rpm -e --nodeps mariadb-libs-5.5.44-2.el7.centos.x86_64
+
+
+rpm -e mariadb-devel-5.5.60-1.el7_5.x86_64
+rpm -e mariadb-devel-5.5.60-1.el7_5.x86_64
+rpm -e --nodeps mariadb-5.5.60-1.el7_5.x86_64
+rpm -e --nodeps mariadb-libs-5.5.60-1.el7_5.x86_64
+rpm -e mariadb-server-5.5.60-1.el7_5.x86_64
+
+rpm -e --nodeps perl-DBD-MySQL-4.023-6.el7.x86_64
